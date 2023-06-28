@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 
@@ -44,30 +45,51 @@ const getProfile = (req, res) => {
   res.status(200).json({ user: req.user });
 };
 
-const forgotPassword = async (req, res) => {
-  const { email } = req.body;
 
+
+const forgotPassword = async (req, res) => {
   try {
-    // Generate reset token and save it in the user document
-    const user = await User.findOne({ email });
+    const token = crypto.randomBytes(20).toString('hex');
+    const user = await User.findOne({ email: req.body.email });
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(400).json({ error: 'No user with such email!' });
     }
 
-    const resetToken = jwt.sign({ id: user._id }, process.env.JWT_RESET_SECRET, { expiresIn: '15m' });
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000;
+
     await user.save();
 
-    // Send the reset password email with the token
-    // Implement the logic to send the email here
-    // You can use a library like Nodemailer to send emails
+    const transporter = nodemailer.createTransport({
+      // Configure your email service provider settings
+      service: 'gmail',
+      auth: {
+        user: 'anandsaiii1200@gmail.com',
+        pass: 'azjtjuhdytbpdcfn',
+      },
+    });
 
-    res.json({ message: 'Reset password email sent' });
+    const mailOptions = {
+      from: 'anandsaiii1200@gmail.com',
+      to: user.email,
+      subject: 'Password Reset',
+      text:
+        'You are receiving this email because you requested a password reset. Please click on the following link to reset your password:',
+      html: `<a href="https://auth-server-jq9b.onrender.com/api/users/reset-password/:token/${token}">Reset Password</a>`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({
+      message: 'An email has been sent with further instructions.',
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to send reset password email' });
+    console.log(error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 const resetPassword = async (req, res) => {
   const { token, password } = req.body;
