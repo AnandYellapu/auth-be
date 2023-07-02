@@ -117,7 +117,7 @@ const forgotPassword = async (req, res) => {
       subject: 'Password Reset',
       text:
         'You are receiving this email because you requested a password reset. Please click on the following link to reset your password:',
-      html: `<a href="http://localhost:5000/api/users/reset-password/:token/${token}">Reset Password</a>`,
+      html: `<a href="https://auth-server-jq9b.onrender.com/api/users/reset-password/:token/${token}">Reset Password</a>`,
     };
 
     await transporter.sendMail(mailOptions);
