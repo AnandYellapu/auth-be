@@ -104,8 +104,8 @@ const resetPassword = async (req, res) => {
 
     // Update the user's password and reset token fields
     user.password = hashedPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
     await user.save();
 
     const transporter = nodemailer.createTransport({
