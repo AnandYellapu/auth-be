@@ -45,51 +45,45 @@ const getProfile = (req, res) => {
   res.status(200).json({ user: req.user });
 };
 
-
-
 const forgotPassword = async (req, res) => {
+  const token = crypto.randomBytes(20).toString("hex");
+  const user = await User.findOne({ email: req.body.email });
+
+  if (!user) {
+    return res.status(400).json({ error: "No user with such email!" });
+  }
+
+  user.resetPasswordToken = token;
+  user.resetPasswordExpires = Date.now() + 3600000;
+
   try {
-    const token = crypto.randomBytes(20).toString('hex');
-    const user = await User.findOne({ email: req.body.email });
-
-    if (!user) {
-      return res.status(400).json({ error: 'No user with such email!' });
-    }
-
-    user.resetPasswordToken = token;
-    user.resetPasswordExpires = Date.now() + 3600000;
-
     await user.save();
 
-    const transporter = nodemailer.createTransport({
-      // Configure your email service provider settings
-      service: 'gmail',
+    let transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: true,
       auth: {
-        user: 'anandsaiii1200@gmail.com',
-        pass: 'azjtjuhdytbpdcfn',
+        user: process.env.SMTP_USERNAME,
+        pass: process.env.SMTP_PASSWORD,
       },
     });
 
-    const mailOptions = {
-      from: 'anandsaiii1200@gmail.com',
+    let info = await transporter.sendMail({
+      from: process.env.SMTP_USERNAME,
       to: user.email,
-      subject: 'Password Reset',
-      text:
-        'You are receiving this email because you requested a password reset. Please click on the following link to reset your password:',
-      html: `<a href="https://auth-server-jq9b.onrender.com/api/users/reset-password/:token/${token}">Reset Password</a>`,
-    };
+      subject: "KITCHEN-RECIPE-MANAGEMENT - Reset Password",
+      text: `You are receiving this because you have requested the reset of the password of your account.\n\nToken: ${token}\n\nIf you didn't request this, please ignore this email and your password will remain unchanged.`,
+      html: `<p>You are receiving this because you have requested the reset of the password of your account.</p><p><strong>Token: ${token}</strong></p><p>If you didn't request this, please ignore this email and your password will remain unchanged.</p>`,
+    });
 
-    await transporter.sendMail(mailOptions);
-
-    res.json({
-      message: 'An email has been sent with further instructions.',
+    return res.json({
+      message: `An email has been sent to ${user.email} with further instructions`,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(400).json({ error: error.message });
   }
 };
-
 
 const resetPassword = async (req, res) => {
   const { token, password } = req.body;
@@ -114,10 +108,29 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     await user.save();
 
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: true,
+      auth: {
+        user: process.env.SMTP_USERNAME,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
+
+    let info = await transporter.sendMail({
+      from: process.env.SMTP_USERNAME,
+      to: user.email,
+      subject: "KITCHEN-RECIPE-MANAGEMENT - Password Reset Successful",
+      text: `Your password has been reset successfully. You can now log in with your new password.`,
+      html: `<p>Your password has been reset successfully.</p><p>You can now log in with your new password.</p>`,
+    });
+
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to reset password' });
   }
 };
+
 
 module.exports = { register, login, forgotPassword, resetPassword, getProfile };
